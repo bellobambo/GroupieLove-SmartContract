@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Groupie is ERC721, Ownable {
     struct Art {
         address payable artist;
+        string title; // 🔹 NEW: title of the art
         string artworkURI;
         string musicURI;
         uint256 price;
@@ -24,6 +25,7 @@ contract Groupie is ERC721, Ownable {
     event ArtUploaded(
         uint256 indexed artId,
         address indexed artist,
+        string title,
         string artworkURI,
         string musicURI,
         uint256 price,
@@ -41,17 +43,20 @@ contract Groupie is ERC721, Ownable {
     constructor() ERC721("GroupieLove", "GRP") Ownable() {}
 
     function uploadArt(
+        string calldata title, // 🔹 Add title param
         string calldata artworkURI,
         string calldata musicURI,
         uint256 price,
         uint256 availableMints
     ) external {
+        require(bytes(title).length > 0, "Title required");
         require(bytes(artworkURI).length > 0, "Artwork URI required");
         require(price > 0, "Price must be > 0");
         require(availableMints > 0, "Must have available mints");
 
         arts[nextArtId] = Art({
             artist: payable(msg.sender),
+            title: title,
             artworkURI: artworkURI,
             musicURI: musicURI,
             price: price,
@@ -62,6 +67,7 @@ contract Groupie is ERC721, Ownable {
         emit ArtUploaded(
             nextArtId,
             msg.sender,
+            title,
             artworkURI,
             musicURI,
             price,
@@ -114,6 +120,7 @@ contract Groupie is ERC721, Ownable {
         view
         returns (
             address artist,
+            string memory title,
             string memory artworkURI,
             string memory musicURI,
             uint256 price
@@ -122,7 +129,7 @@ contract Groupie is ERC721, Ownable {
         require(_tokenExists(tokenId), "Token does not exist");
         uint256 artId = tokenToArt[tokenId];
         Art storage art = arts[artId];
-        return (art.artist, art.artworkURI, art.musicURI, art.price);
+        return (art.artist, art.title, art.artworkURI, art.musicURI, art.price);
     }
 
     function tokenURI(
@@ -134,4 +141,4 @@ contract Groupie is ERC721, Ownable {
     }
 }
 
-// Groupie contract deployed to: 0x97E1B3b1d173BBD3CB59D27E103DCE0803406362
+// new address = 0x8FB27CcBf6C343a268CA014E7C77959e2ff63834
