@@ -11,3 +11,9 @@ REPORT_GAS=true npx hardhat test
 npx hardhat node
 npx hardhat ignition deploy ./ignition/modules/Lock.ts
 ```
+
+compile smart contract:
+npx hardhat compile
+
+deploy smart contract:
+npx hardhat run scripts/deploy.ts --network base-sepolia

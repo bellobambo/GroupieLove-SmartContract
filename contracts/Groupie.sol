@@ -5,14 +5,21 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract Groupie is ERC721, Ownable {
+    enum ArtCategory {
+        Image,
+        Music,
+        Video
+    }
+
     struct Art {
         address payable artist;
-        string title; // 🔹 NEW: title of the art
+        string title;
         string artworkURI;
         string musicURI;
         uint256 price;
         uint256 availableMints;
         uint256 mintedCount;
+        ArtCategory category;
     }
 
     uint256 public nextArtId;
@@ -29,7 +36,8 @@ contract Groupie is ERC721, Ownable {
         string artworkURI,
         string musicURI,
         uint256 price,
-        uint256 availableMints
+        uint256 availableMints,
+        ArtCategory category
     );
 
     event ArtMinted(
@@ -40,14 +48,21 @@ contract Groupie is ERC721, Ownable {
         uint256 price
     );
 
+    event TokenTransferred(
+        uint256 indexed tokenId,
+        address indexed from,
+        address indexed to
+    );
+
     constructor() ERC721("GroupieLove", "GRP") Ownable() {}
 
     function uploadArt(
-        string calldata title, // 🔹 Add title param
+        string calldata title,
         string calldata artworkURI,
         string calldata musicURI,
         uint256 price,
-        uint256 availableMints
+        uint256 availableMints,
+        ArtCategory category
     ) external {
         require(bytes(title).length > 0, "Title required");
         require(bytes(artworkURI).length > 0, "Artwork URI required");
@@ -61,7 +76,8 @@ contract Groupie is ERC721, Ownable {
             musicURI: musicURI,
             price: price,
             availableMints: availableMints,
-            mintedCount: 0
+            mintedCount: 0,
+            category: category
         });
 
         emit ArtUploaded(
@@ -71,7 +87,8 @@ contract Groupie is ERC721, Ownable {
             artworkURI,
             musicURI,
             price,
-            availableMints
+            availableMints,
+            category
         );
         nextArtId++;
     }
@@ -103,6 +120,36 @@ contract Groupie is ERC721, Ownable {
         emit ArtMinted(artId, tokenId, msg.sender, art.artist, art.price);
     }
 
+    function transferToken(address to, uint256 tokenId) external {
+        require(
+            _isApprovedOrOwner(msg.sender, tokenId),
+            "Not owner nor approved"
+        );
+        require(to != address(0), "Cannot transfer to zero address");
+
+        // Remove token from sender's list
+        _removeTokenFromSender(msg.sender, tokenId);
+
+        // Transfer token
+        _transfer(msg.sender, to, tokenId);
+
+        // Add token to recipient's list
+        fanTokens[to].push(tokenId);
+
+        emit TokenTransferred(tokenId, msg.sender, to);
+    }
+
+    function _removeTokenFromSender(address sender, uint256 tokenId) internal {
+        uint256[] storage tokens = fanTokens[sender];
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i] == tokenId) {
+                tokens[i] = tokens[tokens.length - 1];
+                tokens.pop();
+                break;
+            }
+        }
+    }
+
     function getFanTokens(
         address fan
     ) external view returns (uint256[] memory) {
@@ -123,13 +170,21 @@ contract Groupie is ERC721, Ownable {
             string memory title,
             string memory artworkURI,
             string memory musicURI,
-            uint256 price
+            uint256 price,
+            ArtCategory category
         )
     {
         require(_tokenExists(tokenId), "Token does not exist");
         uint256 artId = tokenToArt[tokenId];
         Art storage art = arts[artId];
-        return (art.artist, art.title, art.artworkURI, art.musicURI, art.price);
+        return (
+            art.artist,
+            art.title,
+            art.artworkURI,
+            art.musicURI,
+            art.price,
+            art.category
+        );
     }
 
     function tokenURI(
@@ -141,4 +196,4 @@ contract Groupie is ERC721, Ownable {
     }
 }
 
-// new address = 0x8FB27CcBf6C343a268CA014E7C77959e2ff63834
+// smart contract : 0x390c8f560b2D3955364425C7E958c998aDBB6587
