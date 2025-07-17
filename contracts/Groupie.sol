@@ -1,199 +1,103 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract Groupie is ERC721, Ownable {
-    enum ArtCategory {
-        Image,
-        Music,
-        Video
-    }
+contract FanMintCollectibles is ERC1155, Ownable {
+    using Counters for Counters.Counter;
+    Counters.Counter private _artIdCounter;
 
     struct Art {
-        address payable artist;
         string title;
-        string artworkURI;
-        string musicURI;
-        uint256 price;
-        uint256 availableMints;
-        uint256 mintedCount;
-        ArtCategory category;
+        string artistName;
+        address artistWallet;
+        string mediaUrl; // image/audio/video
+        string previewImage; // optional cover art
+        uint256 priceInWei; // price per copy
+        uint256 totalMinted;
     }
 
-    uint256 public nextArtId;
-    uint256 public nextTokenId;
-
     mapping(uint256 => Art) public arts;
-    mapping(uint256 => uint256) public tokenToArt;
-    mapping(address => uint256[]) public fanTokens;
 
     event ArtUploaded(
         uint256 indexed artId,
         address indexed artist,
-        string title,
-        string artworkURI,
-        string musicURI,
-        uint256 price,
-        uint256 availableMints,
-        ArtCategory category
+        string title
     );
-
     event ArtMinted(
         uint256 indexed artId,
-        uint256 indexed tokenId,
-        address indexed fan,
-        address artist,
-        uint256 price
+        address indexed buyer,
+        uint256 amount
+    );
+    event ArtTransferred(
+        uint256 indexed artId,
+        address from,
+        address to,
+        uint256 amount
     );
 
-    event TokenTransferred(
-        uint256 indexed tokenId,
-        address indexed from,
-        address indexed to
-    );
+    constructor() ERC1155("") {}
 
-    constructor() ERC721("GroupieLove", "GRP") Ownable() {}
-
+    /// @notice Artist uploads new art piece
     function uploadArt(
-        string calldata title,
-        string calldata artworkURI,
-        string calldata musicURI,
-        uint256 price,
-        uint256 availableMints,
-        ArtCategory category
+        string memory _title,
+        string memory _artistName,
+        string memory _mediaUrl,
+        string memory _previewImage,
+        uint256 _priceInEther
     ) external {
-        require(bytes(title).length > 0, "Title required");
-        require(bytes(artworkURI).length > 0, "Artwork URI required");
-        require(price > 0, "Price must be > 0");
-        require(availableMints > 0, "Must have available mints");
+        require(_priceInEther > 0, "Price must be greater than 0");
 
-        arts[nextArtId] = Art({
-            artist: payable(msg.sender),
-            title: title,
-            artworkURI: artworkURI,
-            musicURI: musicURI,
-            price: price,
-            availableMints: availableMints,
-            mintedCount: 0,
-            category: category
+        uint256 newArtId = _artIdCounter.current();
+        arts[newArtId] = Art({
+            title: _title,
+            artistName: _artistName,
+            artistWallet: msg.sender,
+            mediaUrl: _mediaUrl,
+            previewImage: _previewImage,
+            priceInWei: _priceInEther * 1 ether,
+            totalMinted: 0
         });
 
-        emit ArtUploaded(
-            nextArtId,
-            msg.sender,
-            title,
-            artworkURI,
-            musicURI,
-            price,
-            availableMints,
-            category
-        );
-        nextArtId++;
+        _artIdCounter.increment();
+
+        emit ArtUploaded(newArtId, msg.sender, _title);
     }
 
-    function mintArt(uint256 artId) external payable {
-        require(artId < nextArtId, "Invalid artId");
-        Art storage art = arts[artId];
+    /// @notice Fans mint art piece
+    function mintArt(uint256 _artId, uint256 _amount) external payable {
+        Art storage art = arts[_artId];
+        require(bytes(art.title).length > 0, "Art does not exist");
+        require(_amount > 0, "Must mint at least 1");
+        uint256 totalPrice = art.priceInWei * _amount;
+        require(msg.value >= totalPrice, "Insufficient payment");
 
-        require(art.mintedCount < art.availableMints, "No mints left");
-        require(msg.value >= art.price, "Insufficient payment");
+        // Revenue split
+        uint256 artistShare = (totalPrice * 85) / 100;
+        uint256 ownerShare = totalPrice - artistShare;
 
-        uint256 tokenId = nextTokenId;
-        nextTokenId++;
+        payable(art.artistWallet).transfer(artistShare);
+        payable(owner()).transfer(ownerShare);
 
-        _safeMint(msg.sender, tokenId);
+        _mint(msg.sender, _artId, _amount, "");
+        art.totalMinted += _amount;
 
-        tokenToArt[tokenId] = artId;
-        fanTokens[msg.sender].push(tokenId);
-
-        art.mintedCount++;
-
-        (bool success, ) = art.artist.call{value: art.price}("");
-        require(success, "Transfer to artist failed");
-
-        if (msg.value > art.price) {
-            payable(msg.sender).transfer(msg.value - art.price);
-        }
-
-        emit ArtMinted(artId, tokenId, msg.sender, art.artist, art.price);
+        emit ArtMinted(_artId, msg.sender, _amount);
     }
 
-    function transferToken(address to, uint256 tokenId) external {
-        require(
-            _isApprovedOrOwner(msg.sender, tokenId),
-            "Not owner nor approved"
-        );
-        require(to != address(0), "Cannot transfer to zero address");
-
-        // Remove token from sender's list
-        _removeTokenFromSender(msg.sender, tokenId);
-
-        // Transfer token
-        _transfer(msg.sender, to, tokenId);
-
-        // Add token to recipient's list
-        fanTokens[to].push(tokenId);
-
-        emit TokenTransferred(tokenId, msg.sender, to);
+    /// @notice Users transfer owned art to others
+    function transferArt(address to, uint256 _artId, uint256 _amount) external {
+        require(balanceOf(msg.sender, _artId) >= _amount, "Not enough balance");
+        _safeTransferFrom(msg.sender, to, _artId, _amount, "");
+        emit ArtTransferred(_artId, msg.sender, to, _amount);
     }
 
-    function _removeTokenFromSender(address sender, uint256 tokenId) internal {
-        uint256[] storage tokens = fanTokens[sender];
-        for (uint256 i = 0; i < tokens.length; i++) {
-            if (tokens[i] == tokenId) {
-                tokens[i] = tokens[tokens.length - 1];
-                tokens.pop();
-                break;
-            }
-        }
-    }
-
-    function getFanTokens(
-        address fan
-    ) external view returns (uint256[] memory) {
-        return fanTokens[fan];
-    }
-
-    function _tokenExists(uint256 tokenId) internal view returns (bool) {
-        return _exists(tokenId);
-    }
-
-    function tokenArt(
-        uint256 tokenId
-    )
-        public
-        view
-        returns (
-            address artist,
-            string memory title,
-            string memory artworkURI,
-            string memory musicURI,
-            uint256 price,
-            ArtCategory category
-        )
-    {
-        require(_tokenExists(tokenId), "Token does not exist");
-        uint256 artId = tokenToArt[tokenId];
-        Art storage art = arts[artId];
-        return (
-            art.artist,
-            art.title,
-            art.artworkURI,
-            art.musicURI,
-            art.price,
-            art.category
-        );
-    }
-
-    function tokenURI(
-        uint256 tokenId
-    ) public view override returns (string memory) {
-        require(_tokenExists(tokenId), "Token does not exist");
-        uint256 artId = tokenToArt[tokenId];
-        return arts[artId].artworkURI;
+    /// @notice Get details of an art piece
+    function getArt(uint256 _artId) external view returns (Art memory) {
+        return arts[_artId];
     }
 }
 
-// smart contract : 0x390c8f560b2D3955364425C7E958c998aDBB6587
+// new contract : 0x9aD0Be3213eD3484d786d2B78Ef5C6B8500478D1

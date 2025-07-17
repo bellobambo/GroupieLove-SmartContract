@@ -1,13 +1,15 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const Groupie = await ethers.getContractFactory("Groupie");
-  const groupie = await Groupie.deploy();
+  const FanMintCollectibles = await ethers.getContractFactory(
+    "FanMintCollectibles"
+  );
+  const fanMintCollectibles = await FanMintCollectibles.deploy();
 
-  await groupie.waitForDeployment();
+  await fanMintCollectibles.waitForDeployment();
 
-  const address = await groupie.getAddress();
-  console.log(`Groupie contract deployed to: ${address}`);
+  const address = await fanMintCollectibles.getAddress();
+  console.log(`FanMintCollectibles contract deployed to: ${address}`);
 }
 
 main()
@@ -16,3 +18,5 @@ main()
     console.error(error);
     process.exit(1);
   });
+
+// contract : 0x9aD0Be3213eD3484d786d2B78Ef5C6B8500478D1
