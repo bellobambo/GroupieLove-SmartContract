@@ -13,10 +13,11 @@ contract FanMintCollectibles is ERC1155, Ownable {
         string title;
         string artistName;
         address artistWallet;
-        string mediaUrl; // image/audio/video
-        string previewImage; // optional cover art
-        uint256 priceInWei; // price per copy
-        uint256 totalMinted;
+        string mediaUrl; // Image/audio/video URL
+        string previewImage; // Optional cover art
+        uint256 priceInWei; // Price per copy in wei
+        uint256 totalMinted; // Number of NFTs minted so far
+        uint256 maxSupply; // Max supply of this NFT
     }
 
     mapping(uint256 => Art) public arts;
@@ -40,15 +41,23 @@ contract FanMintCollectibles is ERC1155, Ownable {
 
     constructor() ERC1155("") {}
 
-    /// @notice Artist uploads new art piece
+    /// @notice Artist uploads a new art piece to the platform
+    /// @param _title Title of the art
+    /// @param _artistName Name of the artist
+    /// @param _mediaUrl Link to the media file (image/audio/video)
+    /// @param _previewImage Optional cover art
+    /// @param _priceInEther Price per copy in Ether
+    /// @param _maxSupply Maximum number of copies that can be minted
     function uploadArt(
         string memory _title,
         string memory _artistName,
         string memory _mediaUrl,
         string memory _previewImage,
-        uint256 _priceInEther
+        uint256 _priceInEther,
+        uint256 _maxSupply
     ) external {
         require(_priceInEther > 0, "Price must be greater than 0");
+        require(_maxSupply > 0, "Supply must be greater than 0");
 
         uint256 newArtId = _artIdCounter.current();
         arts[newArtId] = Art({
@@ -58,19 +67,26 @@ contract FanMintCollectibles is ERC1155, Ownable {
             mediaUrl: _mediaUrl,
             previewImage: _previewImage,
             priceInWei: _priceInEther * 1 ether,
-            totalMinted: 0
+            totalMinted: 0,
+            maxSupply: _maxSupply
         });
 
         _artIdCounter.increment();
-
         emit ArtUploaded(newArtId, msg.sender, _title);
     }
 
-    /// @notice Fans mint art piece
+    /// @notice Fans mint (buy) an art NFT
+    /// @param _artId ID of the art to mint
+    /// @param _amount Number of copies to mint
     function mintArt(uint256 _artId, uint256 _amount) external payable {
         Art storage art = arts[_artId];
         require(bytes(art.title).length > 0, "Art does not exist");
         require(_amount > 0, "Must mint at least 1");
+        require(
+            art.totalMinted + _amount <= art.maxSupply,
+            "Exceeds max supply"
+        );
+
         uint256 totalPrice = art.priceInWei * _amount;
         require(msg.value >= totalPrice, "Insufficient payment");
 
@@ -87,17 +103,17 @@ contract FanMintCollectibles is ERC1155, Ownable {
         emit ArtMinted(_artId, msg.sender, _amount);
     }
 
-    /// @notice Users transfer owned art to others
+    /// @notice Transfer owned art NFT to another user
     function transferArt(address to, uint256 _artId, uint256 _amount) external {
         require(balanceOf(msg.sender, _artId) >= _amount, "Not enough balance");
         _safeTransferFrom(msg.sender, to, _artId, _amount, "");
         emit ArtTransferred(_artId, msg.sender, to, _amount);
     }
 
-    /// @notice Get details of an art piece
+    /// @notice Get full metadata for an art
     function getArt(uint256 _artId) external view returns (Art memory) {
         return arts[_artId];
     }
 }
 
-// new contract : 0x9aD0Be3213eD3484d786d2B78Ef5C6B8500478D1
+// contract address : 0xA0cdB12b9710552dC78a414beeeB487463873515
