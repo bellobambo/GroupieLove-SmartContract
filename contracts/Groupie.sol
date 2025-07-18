@@ -42,12 +42,6 @@ contract FanMintCollectibles is ERC1155, Ownable {
     constructor() ERC1155("") {}
 
     /// @notice Artist uploads a new art piece to the platform
-    /// @param _title Title of the art
-    /// @param _artistName Name of the artist
-    /// @param _mediaUrl Link to the media file (image/audio/video)
-    /// @param _previewImage Optional cover art
-    /// @param _priceInEther Price per copy in Ether
-    /// @param _maxSupply Maximum number of copies that can be minted
     function uploadArt(
         string memory _title,
         string memory _artistName,
@@ -76,8 +70,6 @@ contract FanMintCollectibles is ERC1155, Ownable {
     }
 
     /// @notice Fans mint (buy) an art NFT
-    /// @param _artId ID of the art to mint
-    /// @param _amount Number of copies to mint
     function mintArt(uint256 _artId, uint256 _amount) external payable {
         Art storage art = arts[_artId];
         require(bytes(art.title).length > 0, "Art does not exist");
@@ -114,6 +106,11 @@ contract FanMintCollectibles is ERC1155, Ownable {
     function getArt(uint256 _artId) external view returns (Art memory) {
         return arts[_artId];
     }
+
+    /// ✅ @notice Get total number of artworks created
+    function getArtCount() external view returns (uint256) {
+        return _artIdCounter.current();
+    }
 }
 
-// contract address : 0xA0cdB12b9710552dC78a414beeeB487463873515
+// new contract : 0x34a608794e6B2E61e5c68E264eF198D416E26137
