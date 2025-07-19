@@ -15,7 +15,7 @@ contract FanMintCollectibles is ERC1155, Ownable {
         address artistWallet;
         string mediaUrl; // Image/audio/video URL
         string previewImage; // Optional cover art
-        uint256 priceInWei; // Price per copy in wei
+        uint256 price; // Price per copy in ETH (displayed as decimal)
         uint256 totalMinted; // Number of NFTs minted so far
         uint256 maxSupply; // Max supply of this NFT
     }
@@ -47,10 +47,10 @@ contract FanMintCollectibles is ERC1155, Ownable {
         string memory _artistName,
         string memory _mediaUrl,
         string memory _previewImage,
-        uint256 _priceInEther,
+        uint256 _price, // Now in ETH (e.g., 0.001 ETH)
         uint256 _maxSupply
     ) external {
-        require(_priceInEther > 0, "Price must be greater than 0");
+        require(_price > 0, "Price must be greater than 0");
         require(_maxSupply > 0, "Supply must be greater than 0");
 
         uint256 newArtId = _artIdCounter.current();
@@ -60,7 +60,7 @@ contract FanMintCollectibles is ERC1155, Ownable {
             artistWallet: msg.sender,
             mediaUrl: _mediaUrl,
             previewImage: _previewImage,
-            priceInWei: _priceInEther * 1 ether,
+            price: _price,
             totalMinted: 0,
             maxSupply: _maxSupply
         });
@@ -79,12 +79,12 @@ contract FanMintCollectibles is ERC1155, Ownable {
             "Exceeds max supply"
         );
 
-        uint256 totalPrice = art.priceInWei * _amount;
+        uint256 totalPrice = art.price * _amount;
         require(msg.value >= totalPrice, "Insufficient payment");
 
         // Revenue split
-        uint256 artistShare = (totalPrice * 85) / 100;
-        uint256 ownerShare = totalPrice - artistShare;
+        uint256 artistShare = (msg.value * 85) / 100;
+        uint256 ownerShare = msg.value - artistShare;
 
         payable(art.artistWallet).transfer(artistShare);
         payable(owner()).transfer(ownerShare);
@@ -107,10 +107,10 @@ contract FanMintCollectibles is ERC1155, Ownable {
         return arts[_artId];
     }
 
-    /// ✅ @notice Get total number of artworks created
+    /// @notice Get total number of artworks created
     function getArtCount() external view returns (uint256) {
         return _artIdCounter.current();
     }
 }
 
-// new contract : 0x34a608794e6B2E61e5c68E264eF198D416E26137
+// new contract : 0xa9265e612543985ed1691dEED9A1117FF518aC80
