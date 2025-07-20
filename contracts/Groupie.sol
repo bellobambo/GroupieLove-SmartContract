@@ -9,15 +9,17 @@ contract FanMintCollectibles is ERC1155, Ownable {
     using Counters for Counters.Counter;
     Counters.Counter private _artIdCounter;
 
+    uint256 public constant MAX_URI_LENGTH = 256;
+
     struct Art {
         string title;
         string artistName;
         address artistWallet;
-        string mediaUrl; // Image/audio/video URL
-        string previewImage; // Optional cover art
-        uint256 price; // Price per copy in ETH (displayed as decimal)
-        uint256 totalMinted; // Number of NFTs minted so far
-        uint256 maxSupply; // Max supply of this NFT
+        string mediaUrl;
+        string previewUrl;
+        uint256 price;
+        uint256 totalMinted;
+        uint256 maxSupply;
     }
 
     mapping(uint256 => Art) public arts;
@@ -41,17 +43,30 @@ contract FanMintCollectibles is ERC1155, Ownable {
 
     constructor() ERC1155("") {}
 
-    /// @notice Artist uploads a new art piece to the platform
     function uploadArt(
         string memory _title,
         string memory _artistName,
         string memory _mediaUrl,
-        string memory _previewImage,
-        uint256 _price, // Now in ETH (e.g., 0.001 ETH)
+        string memory _previewUrl,
+        uint256 _price,
         uint256 _maxSupply
     ) external {
+        require(bytes(_title).length > 0, "Title cannot be empty");
+        require(bytes(_artistName).length > 0, "Artist name cannot be empty");
+        require(bytes(_mediaUrl).length > 0, "Media URL cannot be empty");
         require(_price > 0, "Price must be greater than 0");
         require(_maxSupply > 0, "Supply must be greater than 0");
+        require(
+            bytes(_mediaUrl).length <= MAX_URI_LENGTH,
+            "Media URL too long"
+        );
+
+        if (bytes(_previewUrl).length > 0) {
+            require(
+                bytes(_previewUrl).length <= MAX_URI_LENGTH,
+                "Preview URL too long"
+            );
+        }
 
         uint256 newArtId = _artIdCounter.current();
         arts[newArtId] = Art({
@@ -59,7 +74,7 @@ contract FanMintCollectibles is ERC1155, Ownable {
             artistName: _artistName,
             artistWallet: msg.sender,
             mediaUrl: _mediaUrl,
-            previewImage: _previewImage,
+            previewUrl: _previewUrl,
             price: _price,
             totalMinted: 0,
             maxSupply: _maxSupply
@@ -69,7 +84,6 @@ contract FanMintCollectibles is ERC1155, Ownable {
         emit ArtUploaded(newArtId, msg.sender, _title);
     }
 
-    /// @notice Fans mint (buy) an art NFT
     function mintArt(uint256 _artId, uint256 _amount) external payable {
         Art storage art = arts[_artId];
         require(bytes(art.title).length > 0, "Art does not exist");
@@ -82,8 +96,7 @@ contract FanMintCollectibles is ERC1155, Ownable {
         uint256 totalPrice = art.price * _amount;
         require(msg.value >= totalPrice, "Insufficient payment");
 
-        // Revenue split
-        uint256 artistShare = (msg.value * 85) / 100;
+        uint256 artistShare = (msg.value * 90) / 100;
         uint256 ownerShare = msg.value - artistShare;
 
         payable(art.artistWallet).transfer(artistShare);
@@ -95,22 +108,33 @@ contract FanMintCollectibles is ERC1155, Ownable {
         emit ArtMinted(_artId, msg.sender, _amount);
     }
 
-    /// @notice Transfer owned art NFT to another user
+    function uri(uint256 _artId) public view override returns (string memory) {
+        require(bytes(arts[_artId].title).length > 0, "Art does not exist");
+        return arts[_artId].mediaUrl;
+    }
+
+    function previewUrl(uint256 _artId) external view returns (string memory) {
+        require(bytes(arts[_artId].title).length > 0, "Art does not exist");
+        return arts[_artId].previewUrl;
+    }
+
     function transferArt(address to, uint256 _artId, uint256 _amount) external {
         require(balanceOf(msg.sender, _artId) >= _amount, "Not enough balance");
         _safeTransferFrom(msg.sender, to, _artId, _amount, "");
         emit ArtTransferred(_artId, msg.sender, to, _amount);
     }
 
-    /// @notice Get full metadata for an art
     function getArt(uint256 _artId) external view returns (Art memory) {
         return arts[_artId];
     }
 
-    /// @notice Get total number of artworks created
     function getArtCount() external view returns (uint256) {
         return _artIdCounter.current();
     }
+
+    function withdraw() external onlyOwner {
+        payable(owner()).transfer(address(this).balance);
+    }
 }
 
-// new contract : 0xa9265e612543985ed1691dEED9A1117FF518aC80
+// FanMintCollectibles contract deployed to: 0xA8e2D0949d6A3457CE4bf128aC754Fc9fcc0970E

@@ -19,4 +19,4 @@ main()
     process.exit(1);
   });
 
-// contract address : 0xa9265e612543985ed1691dEED9A1117FF518aC80
+// FanMintCollectibles contract deployed to: 0xA8e2D0949d6A3457CE4bf128aC754Fc9fcc0970E
