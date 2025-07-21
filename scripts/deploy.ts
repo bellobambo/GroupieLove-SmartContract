@@ -19,4 +19,4 @@ main()
     process.exit(1);
   });
 
-// FanMintCollectibles contract deployed to: 0xA8e2D0949d6A3457CE4bf128aC754Fc9fcc0970E
+// FanMintCollectibles contract deployed to: 0x4d23c144e36E9fe0443D2aC25E4Ebe0Ff80dD8Cd

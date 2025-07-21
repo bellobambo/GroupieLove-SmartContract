@@ -108,6 +108,20 @@ contract FanMintCollectibles is ERC1155, Ownable {
         emit ArtMinted(_artId, msg.sender, _amount);
     }
 
+    function burnArt(uint256 _artId, uint256 _amount) external {
+        require(
+            balanceOf(msg.sender, _artId) >= _amount,
+            "Not enough balance to burn"
+        );
+        require(_amount > 0, "Must burn at least 1");
+
+        Art storage art = arts[_artId];
+        require(bytes(art.title).length > 0, "Art does not exist");
+
+        _burn(msg.sender, _artId, _amount);
+        art.totalMinted -= _amount;
+    }
+
     function uri(uint256 _artId) public view override returns (string memory) {
         require(bytes(arts[_artId].title).length > 0, "Art does not exist");
         return arts[_artId].mediaUrl;
@@ -137,4 +151,4 @@ contract FanMintCollectibles is ERC1155, Ownable {
     }
 }
 
-// FanMintCollectibles contract deployed to: 0xA8e2D0949d6A3457CE4bf128aC754Fc9fcc0970E
+// FanMintCollectibles contract deployed to: 0x4d23c144e36E9fe0443D2aC25E4Ebe0Ff80dD8Cd
